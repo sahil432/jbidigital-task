@@ -1,0 +1,4 @@
+name = events
+description = creates a events
+core = 7.x
+

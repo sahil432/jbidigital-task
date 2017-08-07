@@ -1,0 +1,104 @@
+<?php
+	function events_schema(){
+		$schema['subscribed_user'] = array(
+			'description'=>t('table created for subscribed user'),
+			'fields' => array(
+				'id'=>array(
+					'type'=>'serial',
+					'not null'=>TRUE
+				),
+				'name' => array(
+					'type' => 'varchar',
+					'length' => 100,
+					'not null' => TRUE
+				),
+				'category' => array(
+					'type' => 'varchar',
+					'length' => 100,
+					'not null' => TRUE
+				),
+				
+				'email' => array(
+					'type' => 'varchar',
+					'length' => 150,
+					'not null' => TRUE
+				),
+				'mobileno' => array(
+					'type' => 'varchar',
+					'length' => 10,
+					'not null' => TRUE
+				),
+				
+			),
+			'unique keys' => array(
+    'mobileno' => array('mobileno'),
+  ),
+			'primary key' => array('id'),
+		);
+		
+		$schema['events'] = array(
+			'description'=>t('table created for events'),
+			'fields' => array(
+				'id'=>array(
+					'type'=>'serial',
+					'not null'=>TRUE
+				),
+				'title' => array(
+					'type' => 'varchar',
+					'length' => 100,
+					'not null' => TRUE
+				),
+				
+				'description' => array(
+					'type' => 'varchar',
+					'length' => 150,
+					'not null' => TRUE
+				),
+				'category' => array(
+					'type' => 'varchar',
+					'length' => 150,
+					'not null' => TRUE
+				),
+				
+				'image_fid' => array(
+					'type' => 'int',
+					'not null' => TRUE
+				),
+				
+			'date' => array(
+			'description' => t('The publish date for the single event'),
+			'type' => 'varchar',
+			'mysql_type' => 'datetime',
+			'not null' => TRUE,
+				),
+			),
+		
+  
+			'primary key' => array('id'),
+		);
+		
+		
+		$schema['events_category'] = array(
+			'description'=>t('table created for events category'),
+			'fields' => array(
+				'id'=>array(
+					'type'=>'serial',
+					'not null'=>TRUE
+				),
+				'title' => array(
+					'type' => 'varchar',
+					'length' => 100,
+					'not null' => TRUE
+				),
+				
+				
+			),
+		
+  
+			'primary key' => array('id'),
+		);
+		
+		
+		
+		return $schema;
+   }

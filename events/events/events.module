@@ -1,0 +1,747 @@
+<?php
+function events_permission() {
+  return array(
+    'events' => array(
+      'title' => t(' events'),
+      'description' => t('Perform administration tasks for events module.'),
+    ),
+		
+  );
+}
+function events_menu(){
+	$items['admin/structure/add_events']=array(    
+	'title'=>'ADD Events',   
+	'page callback'=>'drupal_get_form',
+	
+	'page arguments'=>array('events_page'), 
+	'access arguments'=>array('')
+	);
+	
+	$items['admin/structure/subscribed_users']=array(    
+	'title'=>'Subscribed Users',   
+	'page callback'=>'subscribed_users',
+	'access arguments'=>array('')
+	);
+	$items['events']=array(    
+	'title'=>'Events',   
+	
+	'page callback'=>array('events'),
+	'access arguments'=>array('events'),
+	 'type' => MENU_NORMAL_ITEM,
+	);
+	$items['admin/structure/add_category']=array(    
+	'title'=>'ADD Events Categories',   
+	'page callback'=>'drupal_get_form',
+	'page arguments'=>array('add_categories'), 
+	'access arguments'=>array('')
+	);
+	
+	$items['admin/structure/delete_category/%']=array(    
+	'title'=>'Delete Categories',
+	'type'=>MENU_CALLBACK,
+	'page callback'=>array('delete_category'),  
+	'access arguments'=>array('')
+	
+	);
+	$items['admin/structure/delete_event/%']=array(    
+	'title'=>'Delete Event',
+	'type'=>MENU_CALLBACK,
+	'page callback'=>array('delete_event'),  
+	'access arguments'=>array('')
+	
+	);
+	$items['admin/structure/edit_event/%']=array(    
+	'title'=>'Edit Event',
+	'type'=>MENU_CALLBACK,
+	'page callback'=>'drupal_get_form',
+	'page arguments'=>array('edit_event'),  
+	'access arguments'=>array('')
+	
+	);
+	
+	$items['admin/structure/show_events']=array(    
+	'title'=>'Show Events',   
+	'page callback'=>array('show_events'), 
+	'access arguments'=>array('')
+	);
+	
+	return $items;
+}
+function subscribed_users()
+{
+	$result1 = db_select('subscribed_user', 'n')
+            ->fields('n')
+            ->execute();
+   $num_of_results = $result1->rowCount();
+	if($num_of_results > 0){
+	
+	$b=array('S No.','Name','Mobile Number','Email','category');
+	$row=array();
+	$query = db_select('subscribed_user', 'n')
+				->extend('PagerDefault')    
+				->limit(10)                
+				->extend('TableSort')        
+                ->orderByHeader($b)
+				->fields ('n', array (
+                'id',
+                'name',
+				'email',
+				'mobileno',
+				'category'
+				
+				
+            )	); 
+	$result = $query->execute();
+	$wa=isset($_GET['page'])? $_GET['page']:0;
+	$i=$wa*4+1;
+	foreach($result as $a){
+	$row[]=array(		
+		$i,
+		$a->name,
+				$a->email,
+						$a->mobileno,
+						$a->category
+		);
+	$i++;
+	}
+	
+	$html= theme('table',array('header'=>$b,'rows'=>$row));
+	$html .= theme('pager',
+            array(
+                'tags' => array()
+            )
+        );
+		
+return $html;
+	}else{return 'No User Subscribed';}
+	
+}
+
+function events(){
+	
+	$result1 = db_select('events', 'n')
+            ->fields('n')
+            ->execute();
+   $num_of_results = $result1->rowCount();
+	
+if($num_of_results > 0){
+	
+	$query=db_query("select * from `events` order By category");
+$records = $query->fetchAll();
+	static $jj;
+$jj=0;
+$html='';
+$qq=db_query("SELECT DISTINCT(category) FROM `events` group by category");
+ $q=db_query("select category,count(category) as cou from `events` group by category");
+ $records1 = $qq->fetchAll();
+ $records2 = $q->fetchAll();
+
+ $count=count($records1);
+
+for($i=0;$i<$count;$i++)
+  {
+	 $html.='<b><h2>'.$records[$jj]->category.'</h2></b><br>';
+	 
+	  for($k=0;$k<$records2[$i]->cou;$k++)
+	  {
+		  $html.='Title:- '.$records[$jj]->title .'<br>' ;
+		   $aa=file_load($records[$jj]->image_fid);
+		  
+		 $src=file_create_url($aa->uri);
+			$html.='<img src="'.$src.'" height="200px" width="200px"><br>';
+		 $html.='Description :- '.$records[$jj]->description .'<br>';
+		 
+		  $html.='Event Date :-'.date('d/M/Y',strtotime($records[$jj]->date)).'<br>';
+		  
+		  $jj++;
+		  
+	  }
+  }
+ 
+
+
+return $html;
+}
+else{
+	return 'No Event ';
+}
+}
+
+function edit_event($form,&$form_state)
+{
+	$id=arg(3);
+	$result = db_select('events_category', 'n')
+            ->fields('n')
+            ->execute()
+			->fetchAll(); 
+			//print_r($result);
+			
+	foreach($result as $row){
+	
+$values[$row->title] = $row->title;
+}
+	$result = db_select('events', 'n')
+            
+			->condition('id',$id,'=')
+			->fields('n')
+            ->execute()
+			->fetchAll();
+ 
+	$form['title']=array(
+	'#title'=>t('Title '), 
+	'#type'=>'textfield',
+	'#required'=>TRUE,
+	'#size'=>60,
+	'#default_value'=>isset($result[0]->title)? $result[0]->title :'',
+	'#maxlength'=>100,
+	);
+	
+	$form['event_type'] = array(
+       '#type' => 'select',
+       '#title' => t('Select Category '),
+       '#options' => $values,
+      '#required' => true,
+       '#description' => t(''),
+	   '#default_value'=>isset($result[0]->category)? $result[0]->category :''
+   );
+	
+	 $form['event_image'] = array(
+    '#title' => t('Add Attachment'),
+	
+    '#type' => 'managed_file',
+    '#description' => t('png,gif,jpg'),
+	'#required' => true,
+    '#progress_indicator' => 'bar',
+    '#upload_location' => 'public://',
+	'#default_value'=>isset($result[0]->image_fid)? $result[0]->image_fid :'',
+	"#upload_validators"  => array("file_validate_extensions" => array("png gif jpg")),
+  );
+ $form['description'] = array(
+       '#type' => 'textarea',
+       '#title' => t('Description'),
+		'#size'=>560,
+		'#default_value'=>isset($result[0]->description)? $result[0]->description :''
+   );
+ 
+   $form['submit']=array(
+	'#type'=>'submit', 
+	'#value'=>'save',
+	);
+   
+	return $form;
+	
+	
+}
+
+function edit_event_validate($form,&$form_state)
+{
+	
+	$title=$form_state['values']['title'];
+	 if(!preg_match('/^[a-zA-Z ]*$/',$title))
+    {
+    form_set_error('title', t('This is Invalid Title '));
+    }
+	$description=$form_state['values']['description'];
+	 if(!preg_match('/^[a-zA-Z0-9 ]*$/',$title))
+    {
+    form_set_error('description', t('This is Invalid Description '));
+    }
+	
+	
+}
+
+function edit_event_submit($form,&$form_state)
+{global $base_url;
+	$title=$form_state['values']['title'];
+	$description=$form_state['values']['description'];
+	$file = file_load($form_state['values']['event_image']);
+	$cat=$form_state['values']['event_type'];
+
+
+	if($title && $file && $cat){
+		
+		$file->status = FILE_STATUS_PERMANENT;
+        file_save($file);
+		file_usage_add($file, 'events', 'view', $form_state['values']['event_image']);
+		
+		$nid = db_update('events') 
+->fields(array(
+  
+  'description' => $description ,
+  'title' => $title,
+  'image_fid' => $form_state['values']['event_image'],
+  'category'=>$cat
+))
+->execute();
+
+		
+}
+$url=''.$base_url.'/admin/structure/show_events';
+drupal_goto($url);
+}
+
+function delete_event()
+{
+	 global $base_url;
+  $id=arg(3);
+  
+  $url=''.$base_url.'/admin/structure/show_events';
+  $result = db_select('events', 'n')
+            
+			->condition('id',$id ,'=')
+			->fields('n')
+            ->execute();
+   $num_of_results = $result->rowCount();
+	$rr=$result->fetchAll();
+	
+ $img_id=$rr[0]->image_fid;
+	
+if($num_of_results > 0){
+$num_deleted = db_delete('events')
+  ->condition('id', $id)
+  ->execute();
+  
+  $num_updated11 = db_update('file_managed') 
+  ->fields(array(
+    'status' => 0,
+   
+  ))
+  ->condition('fid',$img_id, '=')
+  ->execute();
+	
+	   
+	   drupal_goto($url);
+	
+	
+}
+else{
+ 	 drupal_goto($url);
+}}
+function show_events()
+{
+	$result1 = db_select('events', 'n')
+            ->fields('n')
+            ->execute();
+   $num_of_results = $result1->rowCount();
+	
+if($num_of_results > 0){
+
+	
+	$b=array('S No.','Title','Action');
+	$row=array();
+	$query = db_select('events', 'n')
+				->extend('PagerDefault')    
+				->limit(10)                
+				->extend('TableSort')        
+                ->orderByHeader($b)
+				->fields ('n', array (
+                'id',
+                'title',
+				
+            )	); 
+	$result = $query->execute();
+	$wa=isset($_GET['page'])? $_GET['page']:0;
+	$i=$wa*4+1;
+	foreach($result as $a){
+	$row[]=array(		
+		$i,
+		$a->title,
+"<a href='delete_event/{$a->id}'>" . t('Delete') . "</a> / <a href='edit_event/{$a->id}'>". t('Edit') . "</a>"
+		);
+	$i++;
+	}
+	
+	$html= theme('table',array('header'=>$b,'rows'=>$row));
+	$html .= theme('pager',
+            array(
+                'tags' => array()
+            )
+        );
+		
+		
+}
+return isset($html)?$html : 'NO Events Found';
+	}
+function events_block_info(){
+	
+	$blocks['category_list']=array('info'=>'Category List');
+	$blocks['subscribe']=array('info'=>'Subscripbe Block');
+	
+	return $blocks;
+}
+function events_block_view($delta=''){
+$block = array();
+
+if ($delta == 'category_list') {
+$block = array(
+'subject' => t('Categories list'),
+'content' => cat_list() 
+); 
+}
+
+if ($delta == 'subscribe') {
+$block = array(
+'subject' => t('Subscribe'),
+'content' => drupal_get_form('subscribe_form') 
+); 
+}
+return $block;
+}
+function subscribe_form($form,&$form_state)
+{
+	$result1 = db_select('events', 'n')
+            ->fields('n')
+            ->execute();
+   $num_of_results = $result1->rowCount();
+	
+if($num_of_results > 0){
+	
+	
+	$result = db_select('events_category', 'n')
+            ->fields('n')
+            ->execute()
+			->fetchAll(); 
+			//print_r($result);
+			
+	foreach($result as $row){
+	
+$values[$row->title] = $row->title;
+}
+
+	
+	$form['name']=array(
+	'#title'=>t('Name '), 
+	'#type'=>'textfield',
+	'#required'=>TRUE,
+	'#size'=>60,
+	'#maxlength'=>100,
+	);
+	$form['event_type'] = array(
+       '#type' => 'select',
+       '#title' => t('Select Category '),
+       '#options' => $values,
+      '#required' => true,
+       '#description' => t(''),
+   );
+	$form['email']=array(
+	'#title'=>t('Email '), 
+	'#type'=>'textfield',
+	'#required'=>TRUE,
+	'#size'=>60,
+	'#maxlength'=>100,
+	);
+	$form['mobileno']=array(
+	'#title'=>t('Mobile Number '), 
+	'#type'=>'textfield',
+	'#required'=>TRUE,
+	'#size'=>60,
+	'#maxlength'=>10,
+	);
+
+	$form['submit']=array(
+	'#type'=>'submit', 
+	'#value'=>'save',
+	);
+	return $form;
+}
+else{
+		$form['msg'] = array(
+
+  '#markup' => t('<b>No Event Found</b>'),
+
+);	
+return $form;
+
+}
+}
+function subscribe_form_validate($form,&$form_state)
+{
+	$email=$form_state['values']['email'];
+	if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+	form_set_error('email', t('this is invalid email address'));
+	}
+	$mobile=$form_state['values']['mobileno'];
+	if(strlen($mobile) !=10){
+		
+		form_set_error('mobileno', t('this is invalid phone number'));
+	}
+	 if(!preg_match('/^[0-9]*$/',$mobile))
+    {
+    form_set_error('mobileno', t('this is invalid phone number'));
+    }
+	if(!preg_match('/^[a-zA-Z]*$/',$form_state['values']['name']))
+    {
+    form_set_error('name', t('this is invalid name'));
+    }
+	
+	
+}
+function subscribe_form_submit($form,&$form_state)
+{
+	$result1 = db_select('subscribed_user', 'n')
+            ->fields('n')
+			->condition('mobileno',$form_state['values']['mobileno'],'=')
+            ->execute();
+   $num_of_results = $result1->rowCount();
+	
+if($num_of_results > 0){
+	
+	drupal_set_message("Already Subscribed");
+}
+else{
+	$nid = db_insert('subscribed_user') 
+->fields(array(
+  'category'=>$form_state['values']['event_type'],
+  'name' => $form_state['values']['name'] ,
+  'email' => $form_state['values']['email'],
+  'mobileno' => $form_state['values']['mobileno'],
+  
+))
+->execute();
+	  drupal_set_message("Subscribed Sucessfully");
+	
+}
+
+}
+
+function events_page($form,&$form_state){
+	global $base_url;
+ $form['link']['#prefix'] = '<a href="'.$base_url.'/admin/structure/add_category">ADD Category</a>'; 
+	
+	
+	
+	$result1 = db_select('events_category', 'n')
+            ->fields('n')
+            ->execute();
+	  $num_of_results = $result1->rowCount();
+	  
+	  if($num_of_results >0){
+	
+	$result = db_select('events_category', 'n')
+            ->fields('n')
+            ->execute()
+			->fetchAll(); 
+			//print_r($result);
+			
+	foreach($result as $row){
+	
+$values[$row->title] = $row->title;
+}
+
+
+
+	  }
+ $form['title']=array(
+	'#title'=>t('Title '), 
+	'#type'=>'textfield',
+	'#required'=>TRUE,
+	'#size'=>60,
+	'#maxlength'=>100,
+	);
+	if($num_of_results >0){
+	$form['event_type'] = array(
+       '#type' => 'select',
+       '#title' => t('Select Category '),
+       '#options' => $values,
+      '#required' => true,
+       '#description' => t(''),
+   );
+	}
+	 $form['event_image'] = array(
+    '#title' => t('Add Attachment'),
+	
+    '#type' => 'managed_file',
+    '#description' => t('png,gif,jpg'),
+	'#required' => true,
+    '#progress_indicator' => 'bar',
+    '#upload_location' => 'public://',
+	"#upload_validators"  => array("file_validate_extensions" => array("png gif jpg")),
+  );
+ $form['description'] = array(
+       '#type' => 'textarea',
+       '#title' => t('Description'),
+		'#size'=>560,
+   );
+ 
+   $form['datetime'] = array
+   (
+   '#title' => t('Date'),
+    '#type' => 'date',
+	'#date_format' => 'd/m/Y'
+	);
+	$form['submit']=array(
+	'#type'=>'submit', 
+	'#value'=>'save',
+	);
+   
+	return $form;
+}
+
+
+function events_page_validate($form,&$form_state)
+{
+	
+	$title=$form_state['values']['title'];
+	 if(!preg_match('/^[a-zA-Z ]*$/',$title))
+    {
+    form_set_error('title', t('This is Invalid Title '));
+    }
+	$description=$form_state['values']['description'];
+	 if(!preg_match('/^[a-zA-Z0-9 ]*$/',$title))
+    {
+    form_set_error('description', t('This is Invalid Description '));
+    }
+	
+	
+}
+
+function events_page_submit($form,&$form_state)
+{global $base_url;
+	$title=$form_state['values']['title'];
+	$description=$form_state['values']['description'];
+	$file = file_load($form_state['values']['event_image']);
+	$cat=$form_state['values']['event_type'];
+	$date=$form_state['values']['datetime'];
+
+	if($title && $file && $cat){
+		$file->status = FILE_STATUS_PERMANENT;
+        file_save($file);
+		file_usage_add($file, 'events', 'view', $form_state['values']['event_image']);
+		
+		$nid = db_insert('events') 
+->fields(array(
+  
+  'description' => $description ,
+  'title' => $title,
+  'image_fid' => $form_state['values']['event_image'],
+  'date'=>$date['year'].'/'.$date['month'].'/'.$date['day'],
+  'category'=>$cat
+))
+->execute();
+
+		
+}
+$url=''.$base_url.'/admin/structure/show_events';
+drupal_goto($url);
+}
+function add_categories($form,&$form_state){
+	global $base_url;
+  $form['name']=array(
+	'#title'=>t('Add Category '), 
+	'#type'=>'textfield',
+	'#required'=>TRUE,
+	'#size'=>60,
+	'#maxlength'=>100,
+	);
+
+	$form['submit']=array(
+	'#type'=>'submit', 
+	'#value'=>'save',
+	);
+$block = module_invoke('events', 'block_view', 'category_list');
+$form['link']['#suffix']= render($block['content']);
+	return $form;
+ 
+ } 
+function add_categories_validate($form,&$form_state){
+
+	$name=$form_state['values']['name'];
+	 if(!preg_match('/^[0-9a-zA-Z ]*$/',$name))
+    {
+    form_set_error('name', t('This is Invalid category only numbers and alphabets are allowed'));
+    }
+	
+}
+function add_categories_submit($form,&$form_state)
+{
+	 $name=$form_state['values']['name'];
+	
+	$result = db_select('events_category', 'n')
+            
+			->condition('title',$name ,'=')
+			->fields('n')
+            ->execute();
+	$num_of_results = $result->rowCount();
+	
+if($num_of_results > 0)
+{
+	    drupal_set_message("Category Already Exist",'error');
+	
+	
+}
+else{
+	db_insert('events_category')
+      ->fields(array(
+        'title' => $name,
+		))->execute();
+	}
+}
+
+function cat_list(){
+	
+	
+	$b=array('S No.','Category Name','Action');
+	$row=array();
+	$query = db_select('events_category', 'n')
+				->extend('PagerDefault')    
+				->limit(4)                
+				->extend('TableSort')        
+                ->orderByHeader($b)
+				->fields ('n', array (
+                'id',
+                'title',
+				
+            )
+			
+			); 
+	$result = $query->execute();
+	$wa=isset($_GET['page'])? $_GET['page']:0;
+	
+$i=$wa*4+1;
+	foreach($result as $a){
+$row[]=array(		
+		$i,
+		$a->title,
+"<a href='delete_category/{$a->id}'>" . t('Delete') . "</a>"
+		);
+	$i++;
+	}
+	
+	$html= theme('table',array('header'=>$b,'rows'=>$row));
+	$html .= theme('pager',
+            array(
+                'tags' => array()
+            )
+        );
+		
+		return $html;
+} 
+
+function delete_category()
+{
+  global $base_url;
+  $id=arg(3);
+  $url=''.$base_url.'/admin/structure/add_category';
+  $result = db_select('events_category', 'n')
+            
+			->condition('id',$id ,'=')
+			->fields('n')
+            ->execute();
+   $num_of_results = $result->rowCount();
+	
+if($num_of_results > 0){
+$num_deleted = db_delete('events_category')
+  ->condition('id', $id)
+  ->execute();
+	   
+	   drupal_goto($url);
+	
+	
+}
+else{
+ 	 drupal_goto($url);
+}
+}
+
+
+?>
